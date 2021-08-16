@@ -1,0 +1,52 @@
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model._
+import akka.stream.ActorMaterializer
+import akka.http.scaladsl.server.Directives._
+import spray.json.DefaultJsonProtocol
+
+import scala.util.{Failure, Success}
+import spray.json._
+
+
+case class GithubRepo(name:String)
+
+trait GithubRepoJSONProtocol extends DefaultJsonProtocol{
+  implicit val githubRepoFormat = jsonFormat1(GithubRepo)
+}
+
+object AutoCreateGithubRepository extends App with GithubRepoJSONProtocol {
+  implicit val actorSystem = ActorSystem("AutoCreateGithubRepository")
+  implicit val materializer = ActorMaterializer()
+
+  val createRepoRoute =
+    pathPrefix("api") {
+      post {
+          (path("createRepo" / Segment) & extractLog) { (repoName, log) =>
+            log.info(s"Got one request to create a new github repo by the name: $repoName")
+            val newGithubRepo = GithubRepo(repoName)
+            val createRepoResponseFuture = Http().singleRequest(
+              HttpRequest(
+                HttpMethods.POST,
+                uri = "https://api.github.com/user/repos",
+                entity = HttpEntity(
+                  ContentTypes.`application/json`,
+                  newGithubRepo.toJson.prettyPrint
+                )
+              )
+            )
+            onComplete(createRepoResponseFuture) {
+              case Success(response) =>
+                response.discardEntityBytes()
+                println(s"The request was successful and returned: $response")
+                println(s"Status Code: ${response.status}")
+                complete(response.status)
+              case Failure(exception) =>
+                failWith(exception)
+            }
+          }
+        }
+    }
+
+  Http().bindAndHandle(createRepoRoute, "localhost", 8080)
+}
