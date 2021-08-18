@@ -1,13 +1,13 @@
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers._
 import akka.stream.ActorMaterializer
 import akka.http.scaladsl.server.Directives._
 import spray.json.DefaultJsonProtocol
 
 import scala.util.{Failure, Success}
 import spray.json._
-
 
 case class GithubRepo(name:String)
 
@@ -18,6 +18,10 @@ trait GithubRepoJSONProtocol extends DefaultJsonProtocol{
 object AutoCreateGithubRepository extends App with GithubRepoJSONProtocol {
   implicit val actorSystem = ActorSystem("AutoCreateGithubRepository")
   implicit val materializer = ActorMaterializer()
+
+  val accessToken = sys.env("token")
+
+  val authHeaderWithToken = Authorization(OAuth2BearerToken(accessToken))
 
   val createRepoRoute =
     pathPrefix("api") {
@@ -32,7 +36,8 @@ object AutoCreateGithubRepository extends App with GithubRepoJSONProtocol {
                 entity = HttpEntity(
                   ContentTypes.`application/json`,
                   newGithubRepo.toJson.prettyPrint
-                )
+                ),
+                headers = List(authHeaderWithToken)
               )
             )
             onComplete(createRepoResponseFuture) {
