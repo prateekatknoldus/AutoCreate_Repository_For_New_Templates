@@ -9,10 +9,10 @@ import spray.json.DefaultJsonProtocol
 import scala.util.{Failure, Success}
 import spray.json._
 
-case class GithubRepo(name:String)
+import model._
 
 trait GithubRepoJSONProtocol extends DefaultJsonProtocol{
-  implicit val githubRepoFormat = jsonFormat1(GithubRepo)
+  implicit val githubRepoFormat: RootJsonFormat[Repository] = jsonFormat1(Repository)
 }
 
 object AutoCreateGithubRepository extends App with GithubRepoJSONProtocol {
@@ -28,7 +28,7 @@ object AutoCreateGithubRepository extends App with GithubRepoJSONProtocol {
       post {
           (path("createRepo" / Segment) & extractLog) { (repoName, log) =>
             log.info(s"Got one request to create a new github repo by the name: $repoName")
-            val newGithubRepo = GithubRepo(repoName)
+            val newGithubRepo = Repository(repoName)
             val createRepoResponseFuture = Http().singleRequest(
               HttpRequest(
                 HttpMethods.POST,
